@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"io"
+	"net/http"
 
 	//"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -57,7 +59,7 @@ type MyResourceReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *MyResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx)
 
 	// TODO(user): your logic here
 	myResource := &appv1.MyResource{}
@@ -68,6 +70,24 @@ func (r *MyResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 		return ctrl.Result{}, err
 	}
+
+	// Example HTTP GET request to the simple service
+    serviceURL := "http://simple-service.default.svc.cluster.local"
+    resp, err := http.Get(serviceURL)
+    if err != nil {
+        log.Error(err, "Failed to make HTTP request to simple service")
+        return ctrl.Result{}, err
+    }
+    defer resp.Body.Close()
+
+    body, err := io.ReadAll(resp.Body)
+    if err != nil {
+        log.Error(err, "Failed to read response body from simple service")
+        return ctrl.Result{}, err
+    }
+
+    message := string(body)
+    log.Info("Received response from simple service", "message", message)
 	
 	// Define Deployments based on the names in MyResource
 	for _, name := range myResource.Spec.Names {
