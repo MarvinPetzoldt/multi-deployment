@@ -14,20 +14,4 @@ subjects:
   name: controller-manager
   namespace: system
 
-# I have added this:
-# apiVersion: rbac.authorization.k8s.io/v1
-# kind: ClusterRoleBinding
-# metadata:
-#   labels:
-#     app.kubernetes.io/name: multi-deployment
-#     app.kubernetes.io/managed-by: kustomize
-#   name: manager-rolebinding
-# roleRef:
-#   apiGroup: rbac.authorization.k8s.io
-#   kind: ClusterRole
-#   name: manager-role
-# subjects:
-# - kind: ServiceAccount
-#   name: multi-deployment-controller-manager
-#   namespace: multi-deployment-system
 

@@ -15,3 +15,11 @@ rules:
   - update
   - patch
   - delete
+
+# Added for retrieving the nodes:
+- apiGroups: [""]
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
