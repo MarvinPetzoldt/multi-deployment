@@ -18,13 +18,14 @@ package controller
 
 import (
 	"context"
-	"io"
-	"net/http"
+	// "io"
+	// "net/http"
 
 	//"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -41,9 +42,26 @@ import (
 type MyResourceReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Clientset *kubernetes.Clientset
 }
 
+// GetNodeCPUInfo retrieves a map of nodeID to their CPU capacities, i.e. number of available CPUs per node.
+func (r *MyResourceReconciler) GetNodeCPUInfo() (map[string]int64, error) {
+	nodes, err := r.Clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	
 
+	nodeCPUInfo := make(map[string]int64)
+	for _, node := range nodes.Items {
+		cpuQuantity := node.Status.Capacity[corev1.ResourceCPU]
+		cpuCount, _ := cpuQuantity.AsInt64() // CPU capacity is expressed in "cores"
+		nodeCPUInfo[node.Name] = cpuCount
+	}
+
+	return nodeCPUInfo, nil
+}
 
 //+kubebuilder:rbac:groups=app.example.com,resources=myresources,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=app.example.com,resources=myresources/status,verbs=get;update;patch
@@ -71,23 +89,33 @@ func (r *MyResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
+	nodeCpuInfo, err := r.GetNodeCPUInfo()
+	if err != nil {
+		log.Error(err, "Unable to retrieve the NodeCPUInfo.")
+	}
+
+	for nodeName, cpuCount := range nodeCpuInfo {
+		log.Info("Node CPU Info", "Node", nodeName, "CPU Cores", cpuCount)
+	}
+
+
 	// Example HTTP GET request to the simple service
-    serviceURL := "http://simple-service.default.svc.cluster.local"
-    resp, err := http.Get(serviceURL)
-    if err != nil {
-        log.Error(err, "Failed to make HTTP request to simple service")
-        return ctrl.Result{}, err
-    }
-    defer resp.Body.Close()
+    // serviceURL := "http://simple-service.default.svc.cluster.local"
+    // resp, err := http.Get(serviceURL)
+    // if err != nil {
+    //     log.Error(err, "Failed to make HTTP request to simple service")
+    //     return ctrl.Result{}, err
+    // }
+    // defer resp.Body.Close()
 
-    body, err := io.ReadAll(resp.Body)
-    if err != nil {
-        log.Error(err, "Failed to read response body from simple service")
-        return ctrl.Result{}, err
-    }
+    // body, err := io.ReadAll(resp.Body)
+    // if err != nil {
+    //     log.Error(err, "Failed to read response body from simple service")
+    //     return ctrl.Result{}, err
+    // }
 
-    message := string(body)
-    log.Info("Received response from simple service", "message", message)
+    // message := string(body)
+    // log.Info("Received response from simple service", "message", message)
 	
 	// Define Deployments based on the names in MyResource
 	for _, name := range myResource.Spec.Names {
