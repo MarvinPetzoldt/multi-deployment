@@ -18,8 +18,9 @@ package controller
 
 import (
 	"context"
-	// "io"
-	// "net/http"
+	"fmt"
+	"io"
+	"net/http"
 
 	//"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -63,6 +64,24 @@ func (r *MyResourceReconciler) GetNodeCPUInfo() (map[string]int64, error) {
 	return nodeCPUInfo, nil
 }
 
+
+func GenerateCoreNaming(nodeCPUInfo map[string]int64) map[string][]string {
+
+	computeNodes := make(map[string][]string)
+
+	for nodeName, cpuCount := range nodeCPUInfo {
+		var cores []string
+		for i := int64(0); i < cpuCount; i++ {
+			coreID := fmt.Sprintf("%s-core-%d", nodeName, i+1)
+			cores = append(cores, coreID)
+		}
+		computeNodes[nodeName] = cores
+	}
+
+	return computeNodes
+}
+
+
 //+kubebuilder:rbac:groups=app.example.com,resources=myresources,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=app.example.com,resources=myresources/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=app.example.com,resources=myresources/finalizers,verbs=update
@@ -79,6 +98,7 @@ func (r *MyResourceReconciler) GetNodeCPUInfo() (map[string]int64, error) {
 func (r *MyResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
+	log.Info("Reconciling...")
 	// TODO(user): your logic here
 	myResource := &appv1.MyResource{}
 	err := r.Get(ctx, req.NamespacedName, myResource)
@@ -98,24 +118,29 @@ func (r *MyResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		log.Info("Node CPU Info", "Node", nodeName, "CPU Cores", cpuCount)
 	}
 
+	coreNaming := GenerateCoreNaming(nodeCpuInfo)
+	for computeNodeName, coreName := range coreNaming {
+		log.Info("CoreNaming", "NodeName", computeNodeName, "CoreName", coreName)
+	}
+
 
 	// Example HTTP GET request to the simple service
-    // serviceURL := "http://simple-service.default.svc.cluster.local"
-    // resp, err := http.Get(serviceURL)
-    // if err != nil {
-    //     log.Error(err, "Failed to make HTTP request to simple service")
-    //     return ctrl.Result{}, err
-    // }
-    // defer resp.Body.Close()
+    serviceURL := "http://simple-service.default.svc.cluster.local"
+    resp, err := http.Get(serviceURL)
+    if err != nil {
+        log.Error(err, "Failed to make HTTP request to simple service")
+        return ctrl.Result{}, err
+    }
+    defer resp.Body.Close()
 
-    // body, err := io.ReadAll(resp.Body)
-    // if err != nil {
-    //     log.Error(err, "Failed to read response body from simple service")
-    //     return ctrl.Result{}, err
-    // }
+    body, err := io.ReadAll(resp.Body)
+    if err != nil {
+        log.Error(err, "Failed to read response body from simple service")
+        return ctrl.Result{}, err
+    }
 
-    // message := string(body)
-    // log.Info("Received response from simple service", "message", message)
+    message := string(body)
+    log.Info("Received response from simple service", "message", message)
 	
 	// Define Deployments based on the names in MyResource
 	for _, name := range myResource.Spec.Names {
